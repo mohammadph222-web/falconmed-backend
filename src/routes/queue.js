@@ -59,32 +59,31 @@ router.post('/patient-called', async (req, res) => {
 // ==========================================
 // 3️⃣ POST /api/queue/patient-finish
 // ==========================================
-router.post('/patient-finish', async (req, res) => {
-  const { patient_id } = req.body;
-  
+router.get('/stats', async (req, res) => {
   try {
-    const result = await pool.query(
-      `UPDATE patient_logs 
-       SET finish_time = NOW() 
-       WHERE patient_id = $1 AND finish_time IS NULL 
-       RETURNING *`,
-      [patient_id]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Patient not found' });
-    }
+    const result = await pool.query(`
+      SELECT 
+        COUNT(*) as total_patients,
+        COUNT(CASE WHEN finish_time IS NULL THEN 1 END) as in_service,
+        COUNT(CASE WHEN called_time IS NULL AND finish_time IS NULL THEN 1 END) as waiting,
+        COALESCE(ROUND(AVG(EXTRACT(EPOCH FROM (called_time - arrival_time)) / 60)::numeric, 2), 0) as avg_waiting_time,
+        COALESCE(ROUND(AVG(EXTRACT(EPOCH FROM (finish_time - called_time)) / 60)::numeric, 2), 0) as avg_service_time,
+        4.8 as rating,
+        0 as identified,
+        0 as unidentified
+      FROM patient_logs
+      WHERE DATE(arrival_time) = CURRENT_DATE
+    `);
     
     res.json({ 
-      success: true, 
-      message: 'Patient service completed',
-      data: result.rows[0] 
+      success: true,
+      data: result.rows[0] || {}
     });
   } catch (err) {
+    console.error('Error:', err);
     res.status(500).json({ error: err.message });
   }
 });
-
 // ==========================================
 // 4️⃣ GET /api/queue/stats
 // ==========================================
