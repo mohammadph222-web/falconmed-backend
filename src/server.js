@@ -5,6 +5,7 @@ import dotenv from 'dotenv';
 import { initializeDatabase } from './config/database.js';
 import transactionRoutes from './routes/transactions.js';
 import dashboardRoutes from './routes/dashboard.js';
+import queueRoutes from './routes/queue.js';
 
 dotenv.config();
 
@@ -28,6 +29,13 @@ app.get('/', (req, res) => {
     endpoints: {
       health: 'GET /',
       queue_machine: 'POST /api/transactions/receive',
+      queue: {
+        patient_arrival: 'POST /api/queue/patient-arrival',
+        patient_called: 'POST /api/queue/patient-called',
+        patient_finish: 'POST /api/queue/patient-finish',
+        stats: 'GET /api/queue/stats',
+        live_patients: 'GET /api/queue/live-patients'
+      },
       dashboard: {
         metrics: 'GET /api/dashboard/metrics?branch_id=br_001',
         pharmacist: 'GET /api/dashboard/pharmacist/:pharmacist_id',
@@ -43,6 +51,7 @@ app.get('/', (req, res) => {
 // API Routes
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/queue', queueRoutes);
 
 // Error handling
 app.use((err, req, res, next) => {
@@ -77,6 +86,12 @@ async function startServer() {
 
 📝 Endpoints:
   • Queue Machine: POST /api/transactions/receive
+  • Queue:
+    - Patient Arrival: POST /api/queue/patient-arrival
+    - Patient Called: POST /api/queue/patient-called
+    - Patient Finish: POST /api/queue/patient-finish
+    - Queue Stats: GET /api/queue/stats
+    - Live Patients: GET /api/queue/live-patients
   • Dashboard:     GET /api/dashboard/*
   • Live Status:   GET /api/dashboard/live-status
   
