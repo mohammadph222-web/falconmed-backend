@@ -93,30 +93,30 @@ router.get('/stats', async (req, res) => {
     const result = await pool.query(`
       SELECT 
         COUNT(*) as total_patients,
-        COUNT(CASE WHEN identified = true THEN 1 END) as identified,
-        COUNT(CASE WHEN identified = false THEN 1 END) as unidentified,
         COUNT(CASE WHEN finish_time IS NULL THEN 1 END) as in_service,
         COUNT(CASE WHEN called_time IS NULL AND finish_time IS NULL THEN 1 END) as waiting,
         COALESCE(ROUND(AVG(waiting_time_minutes)::numeric, 2), 0) as avg_waiting_time,
         COALESCE(ROUND(AVG(service_time_minutes)::numeric, 2), 0) as avg_service_time,
         COALESCE(MAX(waiting_time_minutes), 0) as max_waiting_time,
         COALESCE(MIN(waiting_time_minutes), 0) as min_waiting_time,
-        4.8 as rating
+        4.8 as rating,
+        0 as identified,
+        0 as unidentified
       FROM patient_logs
       WHERE DATE(arrival_time) = CURRENT_DATE
     `);
     
     const data = result.rows[0] || {
       total_patients: 0,
-      identified: 0,
-      unidentified: 0,
       in_service: 0,
       waiting: 0,
       avg_waiting_time: 0,
       avg_service_time: 0,
       max_waiting_time: 0,
       min_waiting_time: 0,
-      rating: 0
+      rating: 0,
+      identified: 0,
+      unidentified: 0
     };
     
     console.log('✅ Stats fetched from DB:', data);
@@ -148,7 +148,6 @@ router.get('/live-patients', async (req, res) => {
         finish_time,
         waiting_time_minutes,
         service_time_minutes,
-        identified,
         CASE 
           WHEN finish_time IS NOT NULL THEN 'completed'
           WHEN called_time IS NOT NULL THEN 'in_service'
