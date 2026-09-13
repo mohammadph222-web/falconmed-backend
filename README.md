@@ -1,265 +1,176 @@
-# FalconMed Elite Backend v1.0.0
+# FalconMed v3 — Pharmacy Operations Analytics Platform
 
-Professional pharmacy management system backend with real-time monitoring and automated alerts.
-
-## 🚀 Features
-
-- **Real-time Data Reception** - Queue Machine sends data instantly
-- **Live Monitoring** - Immediate dashboard updates
-- **Automated Alerts** - Email notifications when thresholds exceeded
-- **Analytics** - Daily metrics and performance tracking
-- **Multi-branch Support** - All branches in one system
-- **PostgreSQL Database** - Neon for scalability
-
-## 📋 Requirements
-
-- Node.js 16+
-- npm or yarn
-- Neon PostgreSQL account (free tier available)
-- Gmail account (for email alerts)
-
-## 🛠️ Installation
-
-### 1. Clone & Install
-
-```bash
-cd falconmed-backend
-npm install
-```
-
-### 2. Setup Environment Variables
-
-Create `.env` file (copy from `.env.example`):
-
-```bash
-# Database (from Neon)
-DATABASE_URL=postgresql://user:password@pg-xxxxx.neon.tech/falconmed?sslmode=require
-
-# Email Service
-EMAIL_SERVICE=gmail
-EMAIL_USER=your-email@gmail.com
-EMAIL_PASSWORD=your-app-password
-
-# General Manager Email
-GENERAL_MANAGER_EMAIL=coo@falconmed.com
-
-# Server
-PORT=5000
-NODE_ENV=development
-```
-
-### 3. Get Gmail App Password
-
-1. Enable 2FA on Gmail
-2. Go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
-3. Generate App Password for Mail
-4. Use this password in `.env`
-
-### 4. Create Neon Database
-
-1. Sign up at [neon.tech](https://neon.tech)
-2. Create new project
-3. Copy connection string to `.env`
-
-### 5. Start Server
-
-**Development:**
-```bash
-npm run dev
-```
-
-**Production:**
-```bash
-npm start
-```
-
-Server runs on `http://localhost:5000`
-
-## 📡 API Endpoints
-
-### Queue Machine Integration
-
-**POST** `/api/transactions/receive`
-
-Queue Machine sends data in this format:
-
-```json
-{
-  "pharmacist_id": "ph_001",
-  "branch_id": "br_001",
-  "patient_identified": true,
-  "waiting_time_minutes": 3.5,
-  "service_time_minutes": 3.2
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Transaction recorded",
-  "alert_triggered": false
-}
-```
-
-### Dashboard Data
-
-**GET** `/api/dashboard/metrics?branch_id=br_001&date=2026-08-30`
-
-Get today's metrics for a branch.
-
-**GET** `/api/dashboard/pharmacist/:pharmacist_id?date=2026-08-30`
-
-Get individual pharmacist performance.
-
-**GET** `/api/dashboard/branches?date=2026-08-30`
-
-Compare all branches.
-
-**GET** `/api/dashboard/top-performers?branch_id=br_001&limit=5`
-
-Get top 5 performers.
-
-**GET** `/api/dashboard/hourly/:branch_id?date=2026-08-30`
-
-Hourly distribution data.
-
-**GET** `/api/dashboard/live-status`
-
-Real-time status of all branches.
-
-### Alert History
-
-**GET** `/api/transactions/alerts?branch_id=br_001&limit=20`
-
-Get recent alerts.
-
-## ⚠️ Alert System
-
-### Trigger Conditions
-
-- **Waiting Time > 5 minutes** → Alert sent
-- Recipients: Branch Manager + General Manager
-- Email includes: Branch, Pharmacist, Waiting Time, Actions
-
-### Alert Recipients
-
-Each branch has a manager email:
-- Main Branch: manager1@falconmed.com
-- Dusit Branch: manager2@falconmed.com
-- Ruwi Branch: manager3@falconmed.com
-- Qurum Branch: manager4@falconmed.com
-- Seeb Branch: manager5@falconmed.com
-
-Plus: General Manager at coo@falconmed.com
-
-## 📊 Database Schema
-
-### Branches
-- id, name, manager_email, created_at
-
-### Pharmacists
-- id, name, branch_id, email, status, created_at
-
-### Transactions (Live)
-- id, pharmacist_id, branch_id, patient_identified
-- waiting_time_minutes, service_time_minutes
-- waiting_time_alert, alert_sent_at, created_at
-
-### Daily Metrics
-- id, branch_id, pharmacist_id, metric_date
-- total_patients, identified_patients, unidentified_patients
-- avg_service_time, avg_waiting_time, serve_rate, no_show_rate
-
-### Alerts Log
-- id, pharmacist_id, branch_id, alert_type
-- message, waiting_time, sent_to_emails, created_at
-
-## 🚀 Deploy to Render
-
-### 1. Connect GitHub
-
-- Push project to GitHub
-- Sign in to Render.com
-- Create new Web Service
-- Connect GitHub repository
-
-### 2. Set Environment Variables
-
-In Render dashboard:
-- Add all `.env` variables
-- Especially DATABASE_URL and EMAIL credentials
-
-### 3. Deploy
-
-- Click Deploy
-- Render will install dependencies and start server
-- Get production URL
-
-### 4. Update Frontend
-
-In React dashboard, change API base URL:
-```javascript
-const API_URL = 'https://your-render-app.onrender.com'
-```
-
-## 🧪 Testing
-
-### Test Email Configuration
-
-```bash
-node -e "
-import { testEmailConfiguration } from './src/services/emailService.js';
-testEmailConfiguration().then(r => console.log('✅ Email configured:', r));
-"
-```
-
-### Test Queue Machine Integration
-
-```bash
-curl -X POST http://localhost:5000/api/transactions/receive \
-  -H "Content-Type: application/json" \
-  -d '{
-    "pharmacist_id": "ph_001",
-    "branch_id": "br_001",
-    "patient_identified": true,
-    "waiting_time_minutes": 6.5,
-    "service_time_minutes": 3.2
-  }'
-```
-
-## 📈 Monitoring
-
-Monitor your backend:
-- Check Render dashboard for logs
-- Monitor Neon database usage
-- Track email sending via Gmail
-
-## 🔒 Security
-
-- Use environment variables for secrets
-- Never commit `.env`
-- Use HTTPS in production
-- Validate all incoming data
-- Rate limiting recommended
-
-## 📞 Support
-
-For issues:
-1. Check `.env` configuration
-2. Verify database connection
-3. Test email service
-4. Check Render logs
-
-## 🎯 Next Steps
-
-1. ✅ Deploy Backend to Render
-2. ✅ Connect Frontend to Backend
-3. ✅ Configure Queue Machine to send data
-4. ✅ Test end-to-end flow
-5. ✅ Monitor live data
+> A professional pharmacy informatics portfolio project demonstrating inventory management, data governance, and analytical case studies using real UAE pharmacy data.
 
 ---
 
-**FalconMed Elite Backend v1.0.0**
-Professional Pharmacy Management System
+## Overview
+
+FalconMed v3 is an educational pharmacy analytics platform built to simulate and analyse real-world pharmacy inventory management scenarios. It is used for:
+
+- **Pharmacy informatics education** — realistic inventory data, clinical scenarios, and operational workflows
+- **Power BI case studies** — structured analytical investigations with published findings
+- **Professional portfolio** — demonstrating pharmacy informatics competency for LinkedIn and employer demonstrations
+
+FalconMed is not a clinical production system. It is an educational platform built on real pharmacy stock data and realistic simulation data.
+
+---
+
+## Live Platform
+
+> Built with React 19 + Vite + Supabase PostgreSQL
+
+**Key capabilities:**
+- Executive Dashboard with real-time inventory health monitoring
+- Drug search across a 22,940-drug UAE DOH reference database
+- Inventory Explorer with professional CSV/Excel export
+- Near-expiry risk analytics with financial exposure quantification
+- Stock count and reconciliation workflow
+- File comparison engine for stock reconciliation
+- Negative stock guard — no inventory record can go below zero
+
+---
+
+## Dataset
+
+| Metric | Value |
+|---|---|
+| Pharmacy network | 19 pharmacies |
+| Total inventory records | 23,151 |
+| Educational pharmacies | 2 (real data from UAE hospital) |
+| Simulated pharmacies | 17 |
+| Drug Master Reference | 22,940 drugs (UAE DOH) |
+| Total inventory value | AED ~30.6M |
+| Data governance | Certified — 100% field completeness across 9 fields |
+
+### Pharmacy Network
+
+| Type | Count | Examples |
+|---|---|---|
+| Inpatient | 4 | ICU, OR, Main, Emergency |
+| Outpatient | 1 | Educational (real data) |
+| Retail | 5 | FRN branches across UAE |
+| Specialty | 4 | Oncology, Dialysis, Cardiology, Day Surgery |
+| Other | 5 | Ambulatory, Pediatric, ER branches |
+
+---
+
+## Technology Stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | React 19 + Vite 8 |
+| Database | PostgreSQL via Supabase |
+| Styling | CSS custom properties (token system) |
+| Export | SheetJS (xlsx) |
+| Analytics | Power BI (case studies) |
+
+---
+
+## Project Structure
+
+```
+falconmed-v3/
+├── src/
+│   ├── App.jsx                        # Navigation and routing
+│   ├── lib/supabase.js                # Database client
+│   ├── styles/
+│   │   ├── tokens.css                 # Design tokens
+│   │   ├── layout.css                 # App shell
+│   │   └── components.css             # Component styles
+│   └── pages/
+│       ├── DashboardPage.jsx          # Executive Dashboard
+│       ├── DrugSearchPage.jsx         # Drug reference search
+│       ├── InventoryExplorerPage.jsx  # Pharmacy inventory table
+│       ├── InventoryIntelligencePage.jsx  # Risk analytics
+│       ├── InventoryOperationsPage.jsx    # Adjustments, dispense, transfer
+│       ├── StockCountPage.jsx         # Stock count sessions
+│       ├── ReconciliationCasesPage.jsx    # Variance investigation
+│       ├── ReconciliationAuditPage.jsx    # Audit trail
+│       └── ReconCompareEngine.jsx     # File comparison tool
+├── docs/
+│   ├── 01_architecture_overview.md
+│   ├── 02_database_design.md
+│   ├── 03_business_rules.md
+│   ├── 04_kpi_definitions.md
+│   ├── 05_data_dictionary.md
+│   ├── 06_roadmap.md
+│   └── 07_case_study_framework.md
+└── README.md
+```
+
+---
+
+## Data Governance
+
+FalconMed completed a full 7-checkpoint dataset governance sprint in June 2026.
+
+| Checkpoint | Description | Result |
+|---|---|---|
+| CP0 | Source integrity — row counts, duplicates, nulls | ✅ PASS |
+| CP1 | Drug mapping — DOH code match rate | ✅ PASS |
+| CP2 | Unit cost coverage | ✅ PASS |
+| CP3 | Expiry date distribution vs scenario targets | ✅ PASS |
+| CP4 | Storage location completeness | ✅ PASS |
+| CP5 | Min/max stock logic validation | ✅ PASS |
+| CP6 | Inventory status consistency | ✅ PASS |
+| CP7 | Full field completeness certificate | ✅ 100% — all 19 pharmacies |
+
+---
+
+## Case Studies
+
+Each case study follows a structured six-step analytical process:
+
+1. Executive Dashboard identifies the highest financial risk
+2. Drill down into that pharmacy
+3. Identify the specific drugs driving the risk
+4. Analyse the root cause
+5. Propose corrective actions
+6. Measure the expected financial improvement
+
+| Case Study | Topic | Status |
+|---|---|---|
+| CS-001 | Near Expiry Risk Analysis | 🔄 In progress |
+| CS-002 | Stock Shortage Analysis | 🔮 Planned |
+| CS-003 | Inventory Value and ABC Analysis | 🔮 Planned |
+| CS-004 | Reconciliation Performance | 🔮 Planned |
+
+---
+
+## Documentation
+
+Full technical documentation is available in the [`/docs`](./docs/) folder:
+
+- [Architecture Overview](./docs/01_architecture_overview.md)
+- [Database Design](./docs/02_database_design.md)
+- [Business Rules](./docs/03_business_rules.md)
+- [KPI Definitions](./docs/04_kpi_definitions.md)
+- [Data Dictionary](./docs/05_data_dictionary.md)
+- [Roadmap](./docs/06_roadmap.md)
+- [Case Study Framework](./docs/07_case_study_framework.md)
+
+---
+
+## Known Limitations
+
+| Limitation | Status |
+|---|---|
+| Inpatient drug names show SAP codes instead of generic names | ⏸ Deferred — awaiting master warehouse mapping file. SQL view and mapping table are ready to deploy. |
+| No React Router (deep-linking not supported) | Documented — future enhancement |
+| No automated tests | Documented — future enhancement |
+
+---
+
+## About
+
+Built by a clinical pharmacist with hands-on experience across inpatient, outpatient, ICU, emergency, oncology, and community pharmacy settings in the UAE.
+
+FalconMed demonstrates the intersection of clinical pharmacy expertise and data analytics — showing that pharmacy informatics is not just a technical discipline but a clinical one.
+
+---
+
+## License
+
+This project is for educational and portfolio demonstration purposes.  
+Real pharmacy data has been anonymised and used with appropriate permissions.
