@@ -103,7 +103,7 @@ router.get('/stats', async (req, res) => {
         COALESCE(MIN(EXTRACT(EPOCH FROM (called_time - arrival_time)) / 60), 0) as min_waiting_time,
         4.8 as rating
       FROM patient_logs
-      WHERE DATE(arrival_time) = CURRENT_DATE
+      WHERE DATE(arrival_time) >= CURRENT_DATE - INTERVAL '7 days'
     `);
     
     const data = result.rows[0] || {
@@ -153,7 +153,7 @@ router.get('/live-patients', async (req, res) => {
           ELSE 'waiting'
         END as status
       FROM patient_logs
-      WHERE DATE(arrival_time) = CURRENT_DATE
+      WHERE DATE(arrival_time) >= CURRENT_DATE - INTERVAL '7 days'
       ORDER BY arrival_time DESC
       LIMIT 50
     `);
