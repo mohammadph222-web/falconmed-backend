@@ -1,4 +1,4 @@
-import db from '../config/database.js'  // ✅ معدل
+import db from '../config/database.js'
 
 // 1. GET /api/network/stats
 export async function getNetworkStats(req, res) {
@@ -18,9 +18,9 @@ export async function getNetworkStats(req, res) {
         COUNT(DISTINCT branch_id) as active_branches,
         SUM(CASE WHEN identified = true THEN 1 ELSE 0 END) as identified,
         SUM(CASE WHEN identified = false THEN 1 ELSE 0 END) as unidentified,
-        ROUND(AVG(service_time_minutes)::numeric, 2) as avg_service_time,
-        ROUND(AVG(waiting_time_minutes)::numeric, 2) as avg_waiting_time,
-        COUNT(DISTINCT user_id) as total_staff,
+        ROUND(AVG(EXTRACT(EPOCH FROM (finish_time - arrival_time))/60)::numeric, 2) as avg_service_time,
+        ROUND(AVG(EXTRACT(EPOCH FROM (called_time - arrival_time))/60)::numeric, 2) as avg_waiting_time,
+        COUNT(DISTINCT patient_name) as total_staff,
         ROUND((SUM(CASE WHEN identified = true THEN 1 ELSE 0 END)::float / COUNT(*) * 100)::numeric, 1) as identified_percentage
       FROM patient_logs
       WHERE 1=1
@@ -49,7 +49,7 @@ export async function getNetworkStats(req, res) {
       }
     })
   } catch (err) {
-    console.error('Error:', err)
+    console.error('Error fetching network stats:', err.message)
     res.status(500).json({ success: false, message: 'Error fetching network stats' })
   }
 }
@@ -80,8 +80,8 @@ export async function getNetworkBranches(req, res) {
         COUNT(*) as total_patients,
         SUM(CASE WHEN identified = true THEN 1 ELSE 0 END) as identified,
         ROUND((SUM(CASE WHEN identified = true THEN 1 ELSE 0 END)::float / COUNT(*) * 100)::numeric, 1) as serve_rate,
-        ROUND(AVG(service_time_minutes)::numeric, 2) as avg_service_time,
-        COUNT(DISTINCT user_id) as staff_count,
+        ROUND(AVG(EXTRACT(EPOCH FROM (finish_time - arrival_time))/60)::numeric, 2) as avg_service_time,
+        COUNT(DISTINCT patient_name) as staff_count,
         CASE 
           WHEN (SUM(CASE WHEN identified = true THEN 1 ELSE 0 END)::float / COUNT(*) * 100) >= 99 THEN 'Excellent'
           WHEN (SUM(CASE WHEN identified = true THEN 1 ELSE 0 END)::float / COUNT(*) * 100) >= 98 THEN 'Good'
@@ -105,7 +105,7 @@ export async function getNetworkBranches(req, res) {
       }
     })
   } catch (err) {
-    console.error('Error:', err)
+    console.error('Error fetching branches:', err.message)
     res.status(500).json({ success: false, message: 'Error fetching branches' })
   }
 }
@@ -136,8 +136,8 @@ export async function getNetworkTrends(req, res) {
         COUNT(*) as total_patients,
         SUM(CASE WHEN identified = true THEN 1 ELSE 0 END) as identified,
         ROUND((SUM(CASE WHEN identified = true THEN 1 ELSE 0 END)::float / COUNT(*) * 100)::numeric, 1) as serve_rate,
-        ROUND(AVG(service_time_minutes)::numeric, 2) as avg_service_time,
-        ROUND(AVG(waiting_time_minutes)::numeric, 2) as avg_waiting_time
+        ROUND(AVG(EXTRACT(EPOCH FROM (finish_time - arrival_time))/60)::numeric, 2) as avg_service_time,
+        ROUND(AVG(EXTRACT(EPOCH FROM (called_time - arrival_time))/60)::numeric, 2) as avg_waiting_time
       FROM patient_logs
       WHERE 1=1
       ${dateClause}
@@ -165,7 +165,7 @@ export async function getNetworkTrends(req, res) {
       }
     })
   } catch (err) {
-    console.error('Error:', err)
+    console.error('Error fetching trends:', err.message)
     res.status(500).json({ success: false, message: 'Error fetching trends' })
   }
 }
@@ -184,7 +184,6 @@ export async function getNetworkStaff(req, res) {
 
     const query = `
       SELECT
-        user_id,
         patient_name as staff_name,
         CASE 
           WHEN branch_id = 1 THEN 'Main Branch'
@@ -195,12 +194,12 @@ export async function getNetworkStaff(req, res) {
           ELSE 'Branch ' || branch_id
         END as branch_name,
         COUNT(*) as patients_served,
-        ROUND(AVG(service_time_minutes)::numeric, 2) as avg_service_time,
+        ROUND(AVG(EXTRACT(EPOCH FROM (finish_time - arrival_time))/60)::numeric, 2) as avg_service_time,
         ROUND((4.6 + RANDOM() * 0.3)::numeric, 1) as rating
       FROM patient_logs
       WHERE 1=1
       ${dateClause}
-      GROUP BY user_id, patient_name, branch_id
+      GROUP BY patient_name, branch_id
       ORDER BY patients_served DESC
       LIMIT $1
     `
@@ -216,7 +215,7 @@ export async function getNetworkStaff(req, res) {
       }
     })
   } catch (err) {
-    console.error('Error:', err)
+    console.error('Error fetching staff:', err.message)
     res.status(500).json({ success: false, message: 'Error fetching staff' })
   }
 }

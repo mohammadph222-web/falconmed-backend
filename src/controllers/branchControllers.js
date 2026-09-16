@@ -1,4 +1,4 @@
-import db from '../config/database.js'  // ✅ معدل
+import db from '../config/database.js'
 
 // 1. GET /api/branches/:id/stats
 export async function getBranchStats(req, res) {
@@ -18,10 +18,10 @@ export async function getBranchStats(req, res) {
         COUNT(*) as total_patients,
         SUM(CASE WHEN identified = true THEN 1 ELSE 0 END) as identified,
         SUM(CASE WHEN identified = false THEN 1 ELSE 0 END) as unidentified,
-        ROUND(AVG(service_time_minutes)::numeric, 2) as avg_service_time,
-        ROUND(AVG(waiting_time_minutes)::numeric, 2) as avg_waiting_time,
+        ROUND(AVG(EXTRACT(EPOCH FROM (finish_time - arrival_time))/60)::numeric, 2) as avg_service_time,
+        ROUND(AVG(EXTRACT(EPOCH FROM (called_time - arrival_time))/60)::numeric, 2) as avg_waiting_time,
         ROUND((SUM(CASE WHEN identified = true THEN 1 ELSE 0 END)::float / COUNT(*) * 100)::numeric, 1) as identified_percentage,
-        COUNT(DISTINCT user_id) as staff_count
+        COUNT(DISTINCT patient_name) as staff_count
       FROM patient_logs
       WHERE branch_id = $1 
       ${dateClause}
@@ -52,7 +52,7 @@ export async function getBranchStats(req, res) {
       }
     })
   } catch (err) {
-    console.error('Error:', err)
+    console.error('Error fetching branch stats:', err.message)
     res.status(500).json({ success: false, message: 'Error fetching branch stats' })
   }
 }
@@ -72,16 +72,15 @@ export async function getBranchPerformers(req, res) {
 
     const query = `
       SELECT
-        user_id,
         patient_name as staff_name,
         COUNT(*) as patients_served,
-        ROUND(AVG(service_time_minutes)::numeric, 2) as avg_service_time,
-        ROUND(AVG(waiting_time_minutes)::numeric, 2) as avg_waiting_time,
+        ROUND(AVG(EXTRACT(EPOCH FROM (finish_time - arrival_time))/60)::numeric, 2) as avg_service_time,
+        ROUND(AVG(EXTRACT(EPOCH FROM (called_time - arrival_time))/60)::numeric, 2) as avg_waiting_time,
         ROUND((4.5 + RANDOM() * 0.4)::numeric, 1) as rating
       FROM patient_logs
       WHERE branch_id = $1
       ${dateClause}
-      GROUP BY user_id, patient_name
+      GROUP BY patient_name
       ORDER BY patients_served DESC
       LIMIT $2
     `
@@ -97,7 +96,7 @@ export async function getBranchPerformers(req, res) {
       }
     })
   } catch (err) {
-    console.error('Error:', err)
+    console.error('Error fetching performers:', err.message)
     res.status(500).json({ success: false, message: 'Error fetching performers' })
   }
 }
@@ -120,7 +119,7 @@ export async function getBranchHourly(req, res) {
         TO_CHAR(arrival_time, 'HH:00') as hour,
         COUNT(*) as patient_count,
         SUM(CASE WHEN identified = true THEN 1 ELSE 0 END) as identified,
-        ROUND(AVG(service_time_minutes)::numeric, 2) as avg_service_time
+        ROUND(AVG(EXTRACT(EPOCH FROM (finish_time - arrival_time))/60)::numeric, 2) as avg_service_time
       FROM patient_logs
       WHERE branch_id = $1
       ${dateClause}
@@ -146,7 +145,7 @@ export async function getBranchHourly(req, res) {
       }
     })
   } catch (err) {
-    console.error('Error:', err)
+    console.error('Error fetching hourly data:', err.message)
     res.status(500).json({ success: false, message: 'Error fetching hourly data' })
   }
 }
@@ -158,7 +157,7 @@ export async function getBranchAlerts(req, res) {
 
     const metricsQuery = `
       SELECT
-        AVG(waiting_time_minutes) as avg_waiting,
+        ROUND(AVG(EXTRACT(EPOCH FROM (called_time - arrival_time))/60)::numeric, 2) as avg_waiting,
         COUNT(*) as current_queue,
         ROUND((SUM(CASE WHEN identified = true THEN 1 ELSE 0 END)::float / COUNT(*) * 100)::numeric, 1) as identified_rate
       FROM patient_logs
@@ -215,7 +214,7 @@ export async function getBranchAlerts(req, res) {
       }
     })
   } catch (err) {
-    console.error('Error:', err)
+    console.error('Error fetching alerts:', err.message)
     res.status(500).json({ success: false, message: 'Error fetching alerts' })
   }
 }
