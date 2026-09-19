@@ -3,36 +3,42 @@ import pool from '../config/database.js';
 
 const router = express.Router();
 
-// ==========================================
+// ═══════════════════════════════════════════════════════════
 // 1️⃣ POST /api/queue/patient-arrival
-// ==========================================
+// ═══════════════════════════════════════════════════════════
+
 router.post('/patient-arrival', async (req, res) => {
   const { patient_id, patient_name, branch_id, service_type, identified } = req.body;
-  
+
   try {
     const result = await pool.query(
-      `INSERT INTO patient_logs (patient_id, patient_name, branch_id, service_type, arrival_time, identified) 
+      `INSERT INTO patient_logs 
+       (patient_id, patient_name, branch_id, service_type, arrival_time, identified) 
        VALUES ($1, $2, $3, $4, NOW(), $5) 
        RETURNING *`,
       [patient_id, patient_name, branch_id, service_type, identified || false]
     );
-    
-    res.json({ 
-      success: true, 
+
+    console.log('✅ Patient registered:', patient_id);
+
+    res.json({
+      success: true,
       message: 'Patient registered',
-      data: result.rows[0] 
+      data: result.rows[0],
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('❌ patient-arrival error:', err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// ==========================================
+// ═══════════════════════════════════════════════════════════
 // 2️⃣ POST /api/queue/patient-called
-// ==========================================
+// ═══════════════════════════════════════════════════════════
+
 router.post('/patient-called', async (req, res) => {
   const { patient_id } = req.body;
-  
+
   try {
     const result = await pool.query(
       `UPDATE patient_logs 
@@ -41,53 +47,64 @@ router.post('/patient-called', async (req, res) => {
        RETURNING *`,
       [patient_id]
     );
-    
+
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Patient not found' });
+      return res.status(404).json({ success: false, error: 'Patient not found or already finished' });
     }
-    
-    res.json({ 
-      success: true, 
+
+    console.log('📞 Patient called:', patient_id);
+
+    res.json({
+      success: true,
       message: 'Patient called',
-      data: result.rows[0] 
+      data: result.rows[0],
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('❌ patient-called error:', err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// ==========================================
+// ═══════════════════════════════════════════════════════════
 // 3️⃣ POST /api/queue/patient-finish
-// ==========================================
+// ═══════════════════════════════════════════════════════════
+
 router.post('/patient-finish', async (req, res) => {
   const { patient_id } = req.body;
-  
+
   try {
     const result = await pool.query(
       `UPDATE patient_logs 
-       SET finish_time = NOW() 
+       SET 
+         finish_time = NOW(),
+         waiting_time_minutes = EXTRACT(EPOCH FROM (called_time - arrival_time)) / 60,
+         service_time_minutes = EXTRACT(EPOCH FROM (NOW() - called_time)) / 60
        WHERE patient_id = $1 AND finish_time IS NULL 
        RETURNING *`,
       [patient_id]
     );
-    
+
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Patient not found' });
+      return res.status(404).json({ success: false, error: 'Patient not found' });
     }
-    
-    res.json({ 
-      success: true, 
+
+    console.log('✅ Patient finished:', patient_id);
+
+    res.json({
+      success: true,
       message: 'Patient service completed',
-      data: result.rows[0] 
+      data: result.rows[0],
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('❌ patient-finish error:', err);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// ==========================================
-// 4️⃣ GET /api/queue/stats
-// ==========================================
+// ═══════════════════════════════════════════════════════════
+// 4️⃣ GET /api/queue/stats  ← ✅ مُصلح
+// ═══════════════════════════════════════════════════════════
+
 router.get('/stats', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -95,17 +112,71 @@ router.get('/stats', async (req, res) => {
         COUNT(*) as total_patients,
         COUNT(CASE WHEN identified = true THEN 1 END) as identified,
         COUNT(CASE WHEN identified = false THEN 1 END) as unidentified,
-        COUNT(CASE WHEN finish_time IS NULL THEN 1 END) as in_service,
+        COUNT(CASE WHEN finish_time IS NULL AND called_time IS NOT NULL THEN 1 END) as in_service,
         COUNT(CASE WHEN called_time IS NULL AND finish_time IS NULL THEN 1 END) as waiting,
-        COALESCE(ROUND(AVG(EXTRACT(EPOCH FROM (called_time - arrival_time)) / 60)::numeric, 2), 0) as avg_waiting_time,
-        COALESCE(ROUND(AVG(EXTRACT(EPOCH FROM (finish_time - called_time)) / 60)::numeric, 2), 0) as avg_service_time,
-        COALESCE(MAX(EXTRACT(EPOCH FROM (called_time - arrival_time)) / 60), 0) as max_waiting_time,
-        COALESCE(MIN(EXTRACT(EPOCH FROM (called_time - arrival_time)) / 60), 0) as min_waiting_time,
+        
+        -- ✅ تجاهل الانتظار > 30 دقيقة (شواذ اختبار)
+        COALESCE(
+          ROUND(
+            AVG(
+              EXTRACT(EPOCH FROM (called_time - arrival_time)) / 60
+            ) FILTER (
+              WHERE called_time IS NOT NULL 
+                AND called_time > arrival_time
+                AND EXTRACT(EPOCH FROM (called_time - arrival_time)) / 60 BETWEEN 0 AND 30
+            )::numeric,
+            2
+          ),
+          0
+        ) as avg_waiting_time,
+        
+        -- ✅ تجاهل الخدمة > 60 دقيقة
+        COALESCE(
+          ROUND(
+            AVG(
+              EXTRACT(EPOCH FROM (finish_time - called_time)) / 60
+            ) FILTER (
+              WHERE finish_time IS NOT NULL 
+                AND called_time IS NOT NULL
+                AND finish_time > called_time
+                AND EXTRACT(EPOCH FROM (finish_time - called_time)) / 60 BETWEEN 0 AND 60
+            )::numeric,
+            2
+          ),
+          0
+        ) as avg_service_time,
+        
+        COALESCE(
+          ROUND(
+            MAX(
+              EXTRACT(EPOCH FROM (called_time - arrival_time)) / 60
+            ) FILTER (
+              WHERE called_time IS NOT NULL 
+                AND EXTRACT(EPOCH FROM (called_time - arrival_time)) / 60 BETWEEN 0 AND 30
+            )::numeric,
+            2
+          ),
+          0
+        ) as max_waiting_time,
+        
+        COALESCE(
+          ROUND(
+            MIN(
+              EXTRACT(EPOCH FROM (called_time - arrival_time)) / 60
+            ) FILTER (
+              WHERE called_time IS NOT NULL 
+                AND called_time > arrival_time
+            )::numeric,
+            2
+          ),
+          0
+        ) as min_waiting_time,
+        
         4.8 as rating
+        
       FROM patient_logs
-      WHERE DATE(arrival_time) >= CURRENT_DATE - INTERVAL '7 days'
     `);
-    
+
     const data = result.rows[0] || {
       total_patients: 0,
       identified: 0,
@@ -116,24 +187,25 @@ router.get('/stats', async (req, res) => {
       avg_service_time: 0,
       max_waiting_time: 0,
       min_waiting_time: 0,
-      rating: 0
+      rating: 0,
     };
-    
+
     console.log('✅ Stats fetched from DB:', data);
-    
-    res.json({ 
+
+    res.json({
       success: true,
-      data
+      data,
     });
   } catch (err) {
     console.error('❌ Error fetching stats:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// ==========================================
+// ═══════════════════════════════════════════════════════════
 // 5️⃣ GET /api/queue/live-patients
-// ==========================================
+// ═══════════════════════════════════════════════════════════
+
 router.get('/live-patients', async (req, res) => {
   try {
     const result = await pool.query(`
@@ -153,20 +225,19 @@ router.get('/live-patients', async (req, res) => {
           ELSE 'waiting'
         END as status
       FROM patient_logs
-      WHERE DATE(arrival_time) >= CURRENT_DATE - INTERVAL '7 days'
       ORDER BY arrival_time DESC
       LIMIT 50
     `);
-    
+
     console.log('✅ Live patients fetched from DB:', result.rows.length, 'patients');
-    
-    res.json({ 
+
+    res.json({
       success: true,
-      data: result.rows
+      data: result.rows,
     });
   } catch (err) {
     console.error('❌ Error fetching live patients:', err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
