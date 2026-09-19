@@ -14,16 +14,47 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// ═══════════════════════════════════════════════════════════
+// CORS - Proper configuration (no wildcard with credentials)
+// ═══════════════════════════════════════════════════════════
+
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
+  'https://falconmed.app',
+  'https://falconmed-elite.vercel.app',
+  'https://falconmed.vercel.app',
+];
+
 app.use(cors({
-origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000', 'https://falconmed.app', 'https://falconmed.vercel.app', '*'],  credentials: true,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+
+    const isAllowed =
+      ALLOWED_ORIGINS.includes(origin) ||
+      origin.endsWith('.vercel.app');
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.warn('❌ CORS blocked:', origin);
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    }
+  },
+  credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
 }));
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
+// ═══════════════════════════════════════════════════════════
 // Health check
+// ═══════════════════════════════════════════════════════════
+
 app.get('/', (req, res) => {
   res.json({
     message: 'FalconMed Elite Backend',
@@ -37,7 +68,7 @@ app.get('/', (req, res) => {
         patient_called: 'POST /api/queue/patient-called',
         patient_finish: 'POST /api/queue/patient-finish',
         stats: 'GET /api/queue/stats',
-        live_patients: 'GET /api/queue/live-patients'
+        live_patients: 'GET /api/queue/live-patients',
       },
       dashboard: {
         metrics: 'GET /api/dashboard/metrics?branch_id=br_001',
@@ -45,37 +76,43 @@ app.get('/', (req, res) => {
         branches: 'GET /api/dashboard/branches',
         top_performers: 'GET /api/dashboard/top-performers',
         hourly: 'GET /api/dashboard/hourly/:branch_id',
-        live_status: 'GET /api/dashboard/live-status'
+        live_status: 'GET /api/dashboard/live-status',
       },
       manager_dashboard: {
         branch_stats: 'GET /api/branches/:id/stats',
         branch_performers: 'GET /api/branches/:id/performers',
         branch_hourly: 'GET /api/branches/:id/hourly',
-        branch_alerts: 'GET /api/branches/:id/alerts'
+        branch_alerts: 'GET /api/branches/:id/alerts',
       },
       admin_dashboard: {
         network_stats: 'GET /api/network/stats',
         network_branches: 'GET /api/network/branches',
         network_trends: 'GET /api/network/trends',
-        network_staff: 'GET /api/network/staff'
-      }
-    }
+        network_staff: 'GET /api/network/staff',
+      },
+    },
   });
 });
 
+// ═══════════════════════════════════════════════════════════
 // API Routes
+// ═══════════════════════════════════════════════════════════
+
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/queue', queueRoutes);
 app.use('/api/branches', branchRoutes);
 app.use('/api/network', networkRoutes);
 
+// ═══════════════════════════════════════════════════════════
 // Error handling
+// ═══════════════════════════════════════════════════════════
+
 app.use((err, req, res, next) => {
   console.error('Error:', err);
   res.status(500).json({
     error: 'Internal Server Error',
-    message: err.message
+    message: err.message,
   });
 });
 
@@ -83,11 +120,14 @@ app.use((err, req, res, next) => {
 app.use((req, res) => {
   res.status(404).json({
     error: 'Not Found',
-    path: req.path
+    path: req.path,
   });
 });
 
+// ═══════════════════════════════════════════════════════════
 // Initialize database and start server
+// ═══════════════════════════════════════════════════════════
+
 async function startServer() {
   try {
     console.log('🔄 Initializing database...');
@@ -111,18 +151,6 @@ async function startServer() {
     - Live Patients: GET /api/queue/live-patients
   ✅ Dashboard:     GET /api/dashboard/*
   ✅ Live Status:   GET /api/dashboard/live-status
-  
-  ✨ NEW Manager Endpoints:
-    - Branch Stats: GET /api/branches/:id/stats
-    - Performers: GET /api/branches/:id/performers
-    - Hourly: GET /api/branches/:id/hourly
-    - Alerts: GET /api/branches/:id/alerts
-    
-  ✨ NEW Admin Endpoints:
-    - Network Stats: GET /api/network/stats
-    - All Branches: GET /api/network/branches
-    - Trends: GET /api/network/trends
-    - Staff: GET /api/network/staff
   
 🚀 Ready for connections...
       `);
